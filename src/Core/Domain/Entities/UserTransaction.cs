@@ -8,6 +8,7 @@ namespace Domain.Entities
         public Guid UserId { get; set; }
         public Guid ProductId { get; set; }
         public TransactionStatusEnum TransactionStatus { get; set; }
+        public int Quantity { get; set; }
         public string Notes { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
 

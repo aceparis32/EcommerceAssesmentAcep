@@ -53,6 +53,7 @@ namespace Application.Features.User.Commands
                 var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256Signature);
                 var claims = new[]
                 {
+                    new Claim("Id", userQuery.Id.ToString()),
                     new Claim("Username", userQuery.Username),
                     new Claim("Fullname", userQuery.Fullname),
                     new Claim("Email", userQuery.Email)

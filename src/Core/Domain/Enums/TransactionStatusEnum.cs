@@ -2,10 +2,12 @@
 {
     public enum TransactionStatusEnum
     {
-        Packed,
+        Bought,
+        Paid,
         Shipped,
         Accepted,
         Completed,
+        Rejected,
         Cancelled
     }
 }

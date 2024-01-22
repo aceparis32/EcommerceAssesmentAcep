@@ -7,5 +7,7 @@ namespace Application.Interfaces
     {
         Task<bool> CreateUserAllowedAction(string username, RoleEnum role);
         Task<bool> GetUserAllowedAction(string allowedAction);
+        Task<bool> AddUserTransactionAction(Guid transactionId, TransactionStatusEnum transactionStatus, string transactionData);
+        Task<bool> GetUserTransactionAction(Guid transactionId, TransactionStatusEnum transactionStatus);
     }
 }
