@@ -1,5 +1,6 @@
 ﻿using Application.Exceptions;
 using Application.Extensions;
+using Application.Features.ErrorLog.Commands;
 using Application.Features.User.Models;
 using Application.Interfaces;
 using Domain.Entities;
@@ -17,35 +18,49 @@ namespace Application.Features.User.Commands
     public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Unit>
     {
         private readonly IApplicationDbContext dbContext;
+        private readonly IMediator mediator;
 
-        public CreateUserCommandHandler(IApplicationDbContext dbContext)
+        public CreateUserCommandHandler(IApplicationDbContext dbContext, IMediator mediator)
         {
             this.dbContext = dbContext;
+            this.mediator = mediator;
         }
         public async Task<Unit> Handle(CreateUserCommand request, CancellationToken cancellationToken)
         {
-            var userQuery = await dbContext.Users.FirstOrDefaultAsync(x => x.Username == request.Username);
-            if (userQuery != null)
-                throw new BadRequestException("User already registered!");
-
-            PasswordValidation(request.Password);
-
-            var newUser = new Domain.Entities.User
+            try
             {
-                Username = request.Username,
-                Password = string.Concat(request.Password).ToSHA256(),
-                Fullname = request.Fullname,
-                Email = request.Email,
-                Phone = request.Phone,
-                Role = request.Role,
-                CreatedBy = "system",
-                CreatedDt = DateTime.UtcNow,
-            };
+                var userQuery = await dbContext.Users.FirstOrDefaultAsync(x => x.Username == request.Username);
+                if (userQuery != null)
+                    throw new BadRequestException("User already registered!");
 
-            await dbContext.Users.AddAsync(newUser);
-            await dbContext.SaveChangesAsync(cancellationToken);
+                PasswordValidation(request.Password);
 
-            return Unit.Value;
+                var newUser = new Domain.Entities.User
+                {
+                    Username = request.Username,
+                    Password = string.Concat(request.Password).ToSHA256(),
+                    Fullname = request.Fullname,
+                    Email = request.Email,
+                    Phone = request.Phone,
+                    Role = request.Role,
+                    CreatedBy = "system",
+                    CreatedDt = DateTime.UtcNow,
+                };
+
+                await dbContext.Users.AddAsync(newUser);
+                await dbContext.SaveChangesAsync(cancellationToken);
+
+                return Unit.Value;
+            }
+            catch (Exception e)
+            {
+                await mediator.Send(new CreateErrorLogCommand
+                {
+                    ErrorMessage = e.Message
+                });
+
+                throw new BadRequestException(e.Message);
+            }
         }
 
         private void PasswordValidation(String password)

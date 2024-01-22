@@ -20,7 +20,7 @@ namespace Application.Features.AuditTrail.Commands
         {
             var mongoClient = new MongoClient(configuration.GetSection("MongoDb:ConnectionString").Get<string>());
             var mongoDb = mongoClient.GetDatabase(configuration.GetSection("MongoDb:DatabaseName").Get<string>());
-            auditTrailCollection = mongoDb.GetCollection<AuditTrailModel>(configuration.GetSection("MongoDb:CollectionName").Get<string>());
+            auditTrailCollection = mongoDb.GetCollection<AuditTrailModel>(configuration.GetSection("MongoDb:AuditTrailCollectionName").Get<string>());
             this.userRepositoryService = userRepositoryService;
         }
 

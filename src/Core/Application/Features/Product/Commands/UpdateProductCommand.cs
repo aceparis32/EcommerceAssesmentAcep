@@ -1,4 +1,6 @@
-﻿using Application.Features.AuditTrail.Commands;
+﻿using Application.Exceptions;
+using Application.Features.AuditTrail.Commands;
+using Application.Features.ErrorLog.Commands;
 using Application.Interfaces;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -33,32 +35,43 @@ namespace Application.Features.Product.Commands
         }
         public async Task<Unit> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
         {
-            await redisActionDbService.GetUserAllowedAction("UPDATE_PRODUCT");
-
-            var productQuery = await dbContext.Products.FirstOrDefaultAsync(x => x.Id == request.Id && x.DeletedDt == null);
-            if (productQuery == null)
-                throw new Exception("Product not found!");
-
-            productQuery.Name = request.Name;
-            productQuery.Description = request.Description;
-            productQuery.Price = request.Price;
-            productQuery.Rating = request.Rating;
-            productQuery.Stock = request.Stock;
-            productQuery.Brand = request.Brand;
-            productQuery.Category = request.Category;
-            productQuery.UpdatedBy = userRepository.Fullname;
-            productQuery.UpdatedDt = DateTime.UtcNow;
-
-            dbContext.Products.Update(productQuery);
-            await dbContext.SaveChangesAsync(cancellationToken);
-
-            // Create Audit Trail
-            await mediator.Send(new CreateAuditTrailCommand
+            try
             {
-                Name = $"Updated Product : {Newtonsoft.Json.JsonConvert.SerializeObject(productQuery)}"
-            });
+                await redisActionDbService.GetUserAllowedAction("UPDATE_PRODUCT");
 
-            return Unit.Value;
+                var productQuery = await dbContext.Products.FirstOrDefaultAsync(x => x.Id == request.Id && x.DeletedDt == null);
+                if (productQuery == null)
+                    throw new Exception("Product not found!");
+
+                productQuery.Name = request.Name;
+                productQuery.Description = request.Description;
+                productQuery.Price = request.Price;
+                productQuery.Rating = request.Rating;
+                productQuery.Stock = request.Stock;
+                productQuery.Brand = request.Brand;
+                productQuery.Category = request.Category;
+                productQuery.UpdatedBy = userRepository.Fullname;
+                productQuery.UpdatedDt = DateTime.UtcNow;
+
+                dbContext.Products.Update(productQuery);
+                await dbContext.SaveChangesAsync(cancellationToken);
+
+                // Create Audit Trail
+                await mediator.Send(new CreateAuditTrailCommand
+                {
+                    Name = $"Updated Product : {Newtonsoft.Json.JsonConvert.SerializeObject(productQuery)}"
+                });
+
+                return Unit.Value;
+            }
+            catch (Exception e)
+            {
+                await mediator.Send(new CreateErrorLogCommand
+                {
+                    ErrorMessage = e.Message
+                });
+                throw new BadRequestException(e.Message);
+            }
         }
     }
 }

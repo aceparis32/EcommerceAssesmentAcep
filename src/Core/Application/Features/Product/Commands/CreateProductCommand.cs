@@ -1,4 +1,6 @@
-﻿using Application.Features.AuditTrail.Commands;
+﻿using Application.Exceptions;
+using Application.Features.AuditTrail.Commands;
+using Application.Features.ErrorLog.Commands;
 using Application.Interfaces;
 using Domain.Entities;
 using MediatR;
@@ -33,34 +35,45 @@ namespace Application.Features.Product.Commands
         }
         public async Task<Unit> Handle(CreateProductCommand request, CancellationToken cancellationToken)
         {
-            await redisActionDbService.GetUserAllowedAction("CREATE_PRODUCT");
-
-            var productQuery = await dbContext.Products.FirstOrDefaultAsync(x => x.Name.ToLower() == request.Name.ToLower() && x.DeletedDt == null);
-            if (productQuery != null)
-                throw new Exception("Product already exist!");
-
-            var newProduct = new Domain.Entities.Product
+            try
             {
-                Name = request.Name,
-                Description = request.Description,
-                Price = request.Price,
-                Rating = request.Rating,
-                Stock = request.Stock,
-                Brand = request.Brand,
-                Category = request.Category,
-                CreatedBy = userRepository.Fullname,
-                CreatedDt = DateTime.UtcNow,
-            };
-            await dbContext.Products.AddAsync(newProduct);
-            await dbContext.SaveChangesAsync(cancellationToken);
+                await redisActionDbService.GetUserAllowedAction("CREATE_PRODUCT");
 
-            // Create Audit Trail
-            await mediator.Send(new CreateAuditTrailCommand
+                var productQuery = await dbContext.Products.FirstOrDefaultAsync(x => x.Name.ToLower() == request.Name.ToLower() && x.DeletedDt == null);
+                if (productQuery != null)
+                    throw new Exception("Product already exist!");
+
+                var newProduct = new Domain.Entities.Product
+                {
+                    Name = request.Name,
+                    Description = request.Description,
+                    Price = request.Price,
+                    Rating = request.Rating,
+                    Stock = request.Stock,
+                    Brand = request.Brand,
+                    Category = request.Category,
+                    CreatedBy = userRepository.Fullname,
+                    CreatedDt = DateTime.UtcNow,
+                };
+                await dbContext.Products.AddAsync(newProduct);
+                await dbContext.SaveChangesAsync(cancellationToken);
+
+                // Create Audit Trail
+                await mediator.Send(new CreateAuditTrailCommand
+                {
+                    Name = $"Created Product : {Newtonsoft.Json.JsonConvert.SerializeObject(newProduct)}"
+                });
+
+                return Unit.Value;
+            }
+            catch (Exception e)
             {
-                Name = $"Created Product : {Newtonsoft.Json.JsonConvert.SerializeObject(newProduct)}"
-            });
-
-            return Unit.Value;
+                await mediator.Send(new CreateErrorLogCommand
+                {
+                    ErrorMessage = e.Message
+                });
+                throw new BadRequestException(e.Message);
+            }
         }
     }
 }

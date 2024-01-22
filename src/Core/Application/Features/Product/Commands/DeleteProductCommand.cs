@@ -1,4 +1,6 @@
-﻿using Application.Features.AuditTrail.Commands;
+﻿using Application.Exceptions;
+using Application.Features.AuditTrail.Commands;
+using Application.Features.ErrorLog.Commands;
 using Application.Interfaces;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -28,26 +30,37 @@ namespace Application.Features.Product.Commands
         }
         public async Task<Unit> Handle(DeleteProductCommand request, CancellationToken cancellationToken)
         {
-            await redisActionDbService.GetUserAllowedAction("DELETE_PRODUCT");
-
-            var productQuery = await dbContext.Products.FirstOrDefaultAsync(x => x.Id == request.Id && x.DeletedDt == null);
-            if (productQuery == null)
-                throw new Exception("Product not found!");
-
-            productQuery.UpdatedDt = DateTime.UtcNow;
-            productQuery.DeletedDt = DateTime.UtcNow;
-            productQuery.UpdatedBy = userRepository.Fullname;
-            productQuery.DeletedBy = userRepository.Fullname;
-
-            dbContext.Products.Update(productQuery);
-            await dbContext.SaveChangesAsync(cancellationToken);
-
-            // Create Audit Trail
-            await mediator.Send(new CreateAuditTrailCommand
+            try
             {
-                Name = $"Deleted Product : {productQuery.Id}"
-            });
-            return Unit.Value;
+                await redisActionDbService.GetUserAllowedAction("DELETE_PRODUCT");
+
+                var productQuery = await dbContext.Products.FirstOrDefaultAsync(x => x.Id == request.Id && x.DeletedDt == null);
+                if (productQuery == null)
+                    throw new Exception("Product not found!");
+
+                productQuery.UpdatedDt = DateTime.UtcNow;
+                productQuery.DeletedDt = DateTime.UtcNow;
+                productQuery.UpdatedBy = userRepository.Fullname;
+                productQuery.DeletedBy = userRepository.Fullname;
+
+                dbContext.Products.Update(productQuery);
+                await dbContext.SaveChangesAsync(cancellationToken);
+
+                // Create Audit Trail
+                await mediator.Send(new CreateAuditTrailCommand
+                {
+                    Name = $"Deleted Product : {productQuery.Id}"
+                });
+                return Unit.Value;
+            }
+            catch (Exception e)
+            {
+                await mediator.Send(new CreateErrorLogCommand
+                {
+                    ErrorMessage = e.Message
+                });
+                throw new BadRequestException(e.Message);
+            }
         }
     }
 }
