@@ -116,5 +116,11 @@ namespace AssesmentAcep.WebAPI.Services
 
             return true;
         }
+
+        public async Task<bool> DeleteUserTransactionAction(Guid transactionId, TransactionStatusEnum transactionStatus)
+        {
+            await redisDb.KeyDeleteAsync($"{transactionId}-{transactionStatus}");
+            return true;
+        }
     }
 }

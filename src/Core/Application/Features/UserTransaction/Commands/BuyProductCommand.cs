@@ -31,6 +31,7 @@ namespace Application.Features.UserTransaction.Commands
         }
         public async Task<Unit> Handle(BuyProductCommand request, CancellationToken cancellationToken)
         {
+            var userTransactionId = Guid.NewGuid();
             try
             {
                 await redisActionDbService.GetUserAllowedAction("BUY_USER_TRANSACTION");
@@ -46,6 +47,7 @@ namespace Application.Features.UserTransaction.Commands
 
                 var newUserTransaction = new Domain.Entities.UserTransaction
                 {
+                    Id = userTransactionId,
                     UserId = Guid.Parse(userRepositoryService.Id),
                     ProductId = request.ProductId,
                     TransactionStatus = Domain.Enums.TransactionStatusEnum.Bought,
@@ -73,6 +75,7 @@ namespace Application.Features.UserTransaction.Commands
             }
             catch (Exception e)
             {
+                await redisActionDbService.DeleteUserTransactionAction(userTransactionId, Domain.Enums.TransactionStatusEnum.Bought);
                 await mediator.Send(new CreateErrorLogCommand
                 {
                     ErrorMessage = e.Message
